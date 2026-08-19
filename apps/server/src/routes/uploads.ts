@@ -27,8 +27,8 @@ function runExtraction(id: string, filePath: string, mime: string, originalName:
   db.prepare(`UPDATE uploads SET extract_status='pending' WHERE id=?`).run(id)
   extractFile(filePath, mime, originalName, (pct) => progress.set(id, { pct, stage: 'Reading handwriting (OCR)' }))
     .then((r) => {
-      db.prepare('UPDATE uploads SET extracted_text=?, extract_status=?, extract_error=? WHERE id=?').run(
-        r.text, r.status, r.error || '', id
+      db.prepare('UPDATE uploads SET extracted_text=?, extract_status=?, extract_error=?, extract_engine=? WHERE id=?').run(
+        r.text, r.status, r.error || '', r.engine || '', id
       )
       progress.set(id, { pct: 100, stage: r.status === 'ok' ? 'Done' : r.status })
       setTimeout(() => progress.delete(id), 60_000)

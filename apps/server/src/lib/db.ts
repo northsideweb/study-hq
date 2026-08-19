@@ -353,6 +353,7 @@ addColumn('attempts', 'reviewed', 'INTEGER DEFAULT 0')
 addColumn('attempts', 'skill_id', 'TEXT')
 addColumn('study_sessions', 'stage', "TEXT DEFAULT ''")
 addColumn('study_log', 'session_id', 'TEXT')
+addColumn('uploads', 'extract_engine', "TEXT DEFAULT ''")
 
 export function uid(prefix = 'id'): string {
   return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 9)}`

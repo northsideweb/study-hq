@@ -81,7 +81,7 @@ export type Upload = {
   title: string; work_type: string; year_level: number; term: number
   school: string; teacher: string; work_date: string; source: string
   original_filename: string; stored_name: string; mime: string; size: number
-  extracted_text: string; extract_status: string; extract_error: string
+  extracted_text: string; extract_status: string; extract_error: string; extract_engine?: string
   created_at: string; subject_name?: string; subject_color?: string; topic_name?: string; has_text?: boolean
 }
 

@@ -157,7 +157,18 @@ export default function UploadList({ subjectId, topicId, limit }: { subjectId?: 
               </div>
               <span className="tag pill">{u.work_type}</span>
               {u.extract_status === 'pending' && <ExtractProgress id={u.id} onDone={refetch} />}
-              {u.extract_status === 'ok' && <span className="tag green pill" title="Text extracted and searchable">text ✓</span>}
+              {u.extract_status === 'ok' && (
+                <span
+                  className={`tag ${u.extract_engine === 'claude' ? 'blue' : 'green'} pill`}
+                  title={u.extract_engine === 'claude'
+                    ? 'Handwriting read by AI — the most accurate option'
+                    : u.extract_engine === 'tesseract'
+                      ? 'Read with offline OCR. Turn AI on in Settings for much better handwriting accuracy.'
+                      : 'Text extracted and searchable'}
+                >
+                  {u.extract_engine === 'claude' ? 'read by AI' : u.extract_engine === 'tesseract' ? 'offline OCR' : 'text ✓'}
+                </span>
+              )}
               {(u.extract_status === 'failed' || u.extract_status === 'unsupported') && (
                 <span className="tag red pill" title={u.extract_error}>no text</span>
               )}
@@ -222,6 +233,15 @@ export default function UploadList({ subjectId, topicId, limit }: { subjectId?: 
                   style={{ maxWidth: '100%', maxHeight: 340, borderRadius: 10, border: '1px solid var(--line)', objectFit: 'contain' }} />
               )}
               <div className="micro">{detail.original_filename} · {fmtBytes(detail.size)} · original is always kept</div>
+            </div>
+          )}
+
+          {detail.extract_engine === 'tesseract' && detail.mime?.startsWith('image/') && (
+            <div className="notice warn">
+              <div>
+                This photo was read with offline OCR, which struggles with handwriting. Turn AI on in Settings and
+                press “Re-read text” for a far more accurate transcription.
+              </div>
             </div>
           )}
 

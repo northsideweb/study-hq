@@ -689,3 +689,50 @@ export async function extractBankEntries(opts: { kind: string; subjectName: stri
   const json = await askJson({ system, user, maxTokens: 8000 })
   return Array.isArray(json) ? json : []
 }
+
+/* ------------------------------------------------------------------ */
+/* Handwriting transcription                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Read handwriting (or any photographed page) with Claude's vision.
+ * Far more accurate than classical OCR, which is built for printed type.
+ */
+export async function transcribeImage(opts: {
+  base64: string
+  mediaType: string
+  subjectName?: string
+  hint?: string
+}): Promise<string> {
+  const anthropic = getClient()
+  const system =
+    `You transcribe photographed schoolwork for a NSW high-school student. Return the text of the page and nothing else.\n` +
+    `Rules:\n` +
+    `- Transcribe exactly what is written, including the student's own wording, spelling and abbreviations. Do not correct, improve or summarise.\n` +
+    `- Preserve the layout: keep line breaks, headings, numbered and bulleted lists, and indentation where it carries meaning.\n` +
+    `- Keep tables as simple rows with columns separated by " | ".\n` +
+    `- Mathematical work: transcribe each step on its own line, using plain text (x^2, sqrt, <=, pi, fractions as a/b).\n` +
+    `- If a word is genuinely illegible, write [?] rather than guessing. If you can make a confident partial reading, write it followed by [?].\n` +
+    `- Describe a diagram, graph or drawing briefly inside square brackets, e.g. [diagram: labelled cell membrane].\n` +
+    `- Ignore page furniture such as margin holes, shadows and the desk behind the page.\n` +
+    `- If the page is blank or nothing is readable, reply with exactly: (no readable text)`
+  const user: any[] = [
+    { type: 'image', source: { type: 'base64', media_type: opts.mediaType, data: opts.base64 } },
+    {
+      type: 'text',
+      text:
+        `Transcribe this page.` +
+        (opts.subjectName ? ` It is ${opts.subjectName} schoolwork.` : '') +
+        (opts.hint ? ` ${opts.hint}` : ''),
+    },
+  ]
+  const res = await anthropic.messages.create({
+    model: ANTHROPIC_MODEL,
+    max_tokens: 8000,
+    system,
+    messages: [{ role: 'user', content: user }],
+  })
+  const text = res.content.map((b: any) => (b.type === 'text' ? b.text : '')).join('').trim()
+  return text === '(no readable text)' ? '' : text
+}
+
