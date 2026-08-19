@@ -55,19 +55,17 @@ export async function askJson(opts: {
   temperature?: number
 }): Promise<any> {
   const anthropic = getClient()
-  const prefill = opts.prefill ?? '['
+  // Some models reject an assistant prefill, so ask for raw JSON in the system prompt instead.
+  const wants = opts.prefill === '{' ? 'a single JSON object' : 'a JSON array'
   const res = await anthropic.messages.create({
     model: ANTHROPIC_MODEL,
     max_tokens: opts.maxTokens ?? 4000,
     temperature: opts.temperature ?? 1,
-    system: opts.system,
-    messages: [
-      { role: 'user', content: opts.user },
-      { role: 'assistant', content: prefill },
-    ],
+    system: `${opts.system}\n\nReply with ${wants} and nothing else - no explanation, no markdown code fences.`,
+    messages: [{ role: 'user', content: opts.user }],
   })
   const text = res.content.map((b: any) => (b.type === 'text' ? b.text : '')).join('')
-  return extractJson(prefill + text)
+  return extractJson(text)
 }
 
 export async function askText(opts: { system: string; user: string; maxTokens?: number }): Promise<string> {
