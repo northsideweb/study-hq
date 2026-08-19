@@ -333,7 +333,16 @@ const SUBJECT_GUIDANCE: Record<string, string> = {
     'NSW Mathematics Standard. Questions must be computational and unambiguous. ALWAYS supply full step-by-step working ' +
     'in the "working" field and the final answer in "answer". Vary the numbers, contexts and units between questions so no ' +
     'two are the same, while testing the same underlying skill. Use realistic Australian contexts (dollars, km, kg) and ' +
-    'standard formulas from the Standard course.',
+    'standard formulas from the Standard course.\n' +
+    'MATHEMATICAL NOTATION - write real maths, not typed shorthand. Wrap every mathematical expression in single dollar ' +
+    'signs so it renders properly:\n' +
+    '- Fractions as $\\frac{3}{4}$, never 3/4. Mixed numbers as $2\\frac{1}{2}$.\n' +
+    '- Powers as $x^2$, roots as $\\sqrt{25}$, multiplication as $\\times$ and division as $\\div$.\n' +
+    '- Comparisons as $\\le$, $\\ge$, $\\neq$, and pi as $\\pi$.\n' +
+    '- Formulas in full, e.g. $A = \\pi r^2$, $FV = PV(1 + r)^n$.\n' +
+    '- Keep ordinary words, money and units outside the dollar signs: "A tank holds $\\frac{3}{4}$ of 200 L".\n' +
+    '- Rates keep their slash and stay outside maths mode: 60 km/h, \\$24.50/hour.\n' +
+    'Use the same notation in the prompt, options, answer, working and marking guide.',
   music:
     'NSW Music 1. Anchor questions in the Concepts of Music (duration, pitch, dynamics and expressive techniques, tone colour, ' +
     'texture, structure). Cover aural analysis, musicology, theory, composition and performance where relevant. ' +
@@ -357,7 +366,7 @@ const QUESTION_SCHEMA = `Return ONLY a JSON array. Each element:
   "stimulus": "optional case study / scenario / source text, else \\"\\"",
   "options": ["A text","B text", ...]   // multiple_choice only, else []
   "answer": "correct option text, or the model answer",
-  "working": "step-by-step working (REQUIRED for maths), else \\"\\"",
+  "working": "step-by-step working (REQUIRED for maths), one step per line, using $...$ notation for any mathematics, else \\"\\"",
   "marking_guide": "what earns each mark",
   "marks": integer,
   "topic_hint": "the specific topic/syllabus point this tests"

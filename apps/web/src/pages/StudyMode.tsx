@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, type Question, type Attempt, type Flashcard } from '../lib/api'
 import { Icon } from '../components/Icons'
+import MathText from '../components/MathText'
 import { Loading, ErrorBox, Bar, Empty, useToast } from '../components/ui'
 import { mdToHtml } from './NoteEditor'
 
@@ -337,7 +338,7 @@ function QuestionStage({ subjectId, topicId, count, qtype, difficulty, heading, 
           </div>
         </div>
 
-        {q.stimulus && <div className="stimulus pre-wrap" style={{ marginBottom: 12 }}>{q.stimulus}</div>}
+        {q.stimulus && <div className="stimulus pre-wrap" style={{ marginBottom: 12 }}><MathText fractions>{q.stimulus}</MathText></div>}
         <div className="question-prompt pre-wrap" style={{ marginBottom: 12 }}>{q.prompt}</div>
 
         {options.length ? (
@@ -348,7 +349,7 @@ function QuestionStage({ subjectId, topicId, count, qtype, difficulty, heading, 
               return (
                 <button key={i} className={`option ${selected ? 'selected' : ''} ${correct ? 'correct' : ''} ${result && selected && !correct ? 'wrong' : ''}`}
                   disabled={!!result} onClick={() => setResponse(opt)}>
-                  <span className="option-key">{LETTERS[i]}</span><span style={{ flex: 1 }}>{opt}</span>
+                  <span className="option-key">{LETTERS[i]}</span><span style={{ flex: 1 }}><MathText fractions>{opt}</MathText></span>
                 </button>
               )
             })}

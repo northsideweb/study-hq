@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, type Question, type Attempt } from '../lib/api'
 import { Loading, ErrorBox, useToast, Bar } from '../components/ui'
 import { Icon } from '../components/Icons'
+import MathText from '../components/MathText'
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F']
 const TYPED_LONG = new Set(['extended_response', 'essay', 'case_study', 'discuss', 'assess', 'evaluate', 'analyse', 'explain', 'scenario'])
@@ -264,9 +265,13 @@ export default function PracticeRunner() {
       </header>
 
       <div>
-        {q.stimulus && <div className="stimulus pre-wrap" style={{ marginBottom: 24 }}>{q.stimulus}</div>}
+        {q.stimulus && (
+          <div className="stimulus pre-wrap" style={{ marginBottom: 24 }}><MathText fractions>{q.stimulus}</MathText></div>
+        )}
 
-        <div className="question-prompt pre-wrap" style={{ marginBottom: 26 }}>{q.prompt}</div>
+        <div className="question-prompt pre-wrap" style={{ marginBottom: 26 }}>
+          <MathText fractions>{q.prompt}</MathText>
+        </div>
 
         {isMcq ? (
           <div className="stack" style={{ gap: 8 }}>
@@ -278,7 +283,7 @@ export default function PracticeRunner() {
                 <button key={i} className={`option ${selected ? 'selected' : ''} ${showCorrect ? 'correct' : ''} ${showWrong ? 'wrong' : ''}`}
                   disabled={!!result} onClick={() => setResponse(opt)}>
                   <span className="option-key">{LETTERS[i]}</span>
-                  <span style={{ flex: 1 }}>{opt}</span>
+                  <span style={{ flex: 1 }}><MathText fractions>{opt}</MathText></span>
                   {showCorrect && <span>✓</span>}
                   {showWrong && <span>✕</span>}
                 </button>
@@ -332,14 +337,14 @@ export default function PracticeRunner() {
             {result.feedback && (
               <div className="notice info" style={{ margin: 0 }}>
                 <Icon name="sparkle" size={14} />
-                <div><strong>Feedback</strong><div className="pre-wrap" style={{ marginTop: 4 }}>{result.feedback}</div></div>
+                <div><strong>Feedback</strong><div className="pre-wrap" style={{ marginTop: 4 }}><MathText fractions>{result.feedback}</MathText></div></div>
               </div>
             )}
 
             {result.improvement && (
               <div style={{ padding: 13, background: 'var(--bg)', borderRadius: 10, borderLeft: '3px solid var(--amber)' }}>
                 <div className="micro" style={{ marginBottom: 4 }}>How to improve</div>
-                <div className="body pre-wrap">{result.improvement}</div>
+                <div className="body pre-wrap"><MathText fractions>{result.improvement}</MathText></div>
               </div>
             )}
 
@@ -347,8 +352,12 @@ export default function PracticeRunner() {
               <details>
                 <summary style={{ cursor: 'pointer', fontSize: 13, color: 'var(--ink-2)' }}>Model answer & working</summary>
                 <div style={{ padding: 13, background: 'var(--bg)', borderRadius: 10, marginTop: 8 }}>
-                  {result.model_answer && <div className="body pre-wrap"><strong>Answer:</strong> {result.model_answer}</div>}
-                  {result.working && <div className="body pre-wrap mono" style={{ marginTop: 8 }}>{result.working}</div>}
+                  {result.model_answer && (
+                    <div className="body pre-wrap"><strong>Answer: </strong><MathText fractions>{result.model_answer}</MathText></div>
+                  )}
+                  {result.working && (
+                    <div className="body pre-wrap" style={{ marginTop: 8, lineHeight: 2 }}><MathText fractions>{result.working}</MathText></div>
+                  )}
                   {result.marking_guide && <div className="micro ink-3 pre-wrap" style={{ marginTop: 8 }}>Marking guide: {result.marking_guide}</div>}
                 </div>
               </details>

@@ -483,6 +483,15 @@ label.field > span { display: block; font-size: 12.5px; font-weight: 550; color:
 .choice .ico { color: var(--ink-3); flex: 0 0 auto; margin-top: 1px; }
 .choice.on .ico { color: var(--blue); }
 
+/* ============================ maths (KaTeX) ============================ */
+/* Slightly larger than the surrounding prose so fractions and powers stay legible,
+   and enough line spacing that stacked fractions never collide. */
+.katex { font-size: 1.08em; }
+.question-prompt .katex { font-size: 1.05em; }
+.question-prompt, .stimulus, .option, .flashcard-front, .flashcard-back { line-height: 1.75; }
+.katex-display { margin: 10px 0; }
+.katex .frac-line { border-bottom-width: 0.055em; }
+
 /* ============================ tables ============================ */
 table.data { width: 100%; border-collapse: collapse; font-size: 14px; }
 table.data th {

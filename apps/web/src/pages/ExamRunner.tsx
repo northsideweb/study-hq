@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, type Question } from '../lib/api'
 import { Loading, ErrorBox, Bar, useToast, useDialogs } from '../components/ui'
 import { Icon } from '../components/Icons'
+import MathText from '../components/MathText'
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F']
 
@@ -177,10 +178,10 @@ export default function ExamRunner() {
             </div>
 
             {q.stimulus && (
-              <div className="stimulus pre-wrap" style={{ marginBottom: 12 }}>{q.stimulus}</div>
+              <div className="stimulus pre-wrap" style={{ marginBottom: 12 }}><MathText fractions>{q.stimulus}</MathText></div>
             )}
 
-            <div className="question-prompt pre-wrap" style={{ marginBottom: 12 }}>{q.prompt}</div>
+            <div className="question-prompt pre-wrap" style={{ marginBottom: 12 }}><MathText fractions>{q.prompt}</MathText></div>
 
             {options.length ? (
               <div className="stack" style={{ gap: 7 }}>
@@ -191,7 +192,7 @@ export default function ExamRunner() {
                     <button key={oi} className={`option ${selected ? 'selected' : ''} ${correct ? 'correct' : ''} ${shown && selected && !correct ? 'wrong' : ''}`}
                       disabled={!!shown} onClick={() => setResponses({ ...responses, [q.id]: opt })}>
                       <span className="option-key">{LETTERS[oi]}</span>
-                      <span style={{ flex: 1 }}>{opt}</span>
+                      <span style={{ flex: 1 }}><MathText fractions>{opt}</MathText></span>
                     </button>
                   )
                 })}
@@ -213,8 +214,8 @@ export default function ExamRunner() {
                 <details>
                   <summary style={{ cursor: 'pointer', fontSize: 12.5, color: 'var(--ink-2)' }}>Model answer</summary>
                   <div className="body pre-wrap" style={{ padding: 11, background: 'var(--bg-sunken)', borderRadius: 8, marginTop: 6 }}>
-                    {q.answer}
-                    {q.working && <div className="mono" style={{ marginTop: 8 }}>{q.working}</div>}
+                    <MathText fractions>{q.answer}</MathText>
+                    {q.working && <div style={{ marginTop: 8, lineHeight: 2 }}><MathText fractions>{q.working}</MathText></div>}
                   </div>
                 </details>
               </div>

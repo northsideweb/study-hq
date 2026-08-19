@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, type Flashcard } from '../lib/api'
 import { Modal, Field, Empty, Loading, useToast, useDialogs, useContextMenu, type MenuItem, Tabs } from '../components/ui'
 import { Icon } from '../components/Icons'
+import MathText from '../components/MathText'
 import GenerateModal from './GenerateModal'
 
 const GRADES = [
@@ -221,13 +222,13 @@ function Review({ cards, onGraded }: { cards: Flashcard[]; onGraded: () => void 
       <div className="flashcard" onClick={() => setFlipped((f) => !f)}>
         {!flipped ? (
           <>
-            <div className="flashcard-front pre-wrap">{card.front}</div>
+            <div className="flashcard-front pre-wrap"><MathText fractions>{card.front}</MathText></div>
             <div className="micro" style={{ marginTop: 18 }}>Click or press Space to flip</div>
           </>
         ) : (
           <>
             <div className="micro" style={{ marginBottom: 12 }}>{card.front}</div>
-            <div className="flashcard-back pre-wrap">{card.back}</div>
+            <div className="flashcard-back pre-wrap"><MathText fractions>{card.back}</MathText></div>
             {card.extra && <div className="body ink-3 pre-wrap" style={{ marginTop: 14 }}>{card.extra}</div>}
           </>
         )}
