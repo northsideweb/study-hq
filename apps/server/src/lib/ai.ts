@@ -732,23 +732,33 @@ export async function transcribeImage(opts: {
 }): Promise<string> {
   const anthropic = getClient()
   const system =
-    `You transcribe photographed schoolwork for a NSW high-school student. Return the text of the page and nothing else.\n` +
+    `You transcribe study material for a NSW high-school student. The image may be a photo of ` +
+    `handwritten work, a photo of a printed page, a scan, or a screenshot of a digital textbook, ` +
+    `website, slide or document. Return the content of the material and nothing else.\n` +
     `Rules:\n` +
-    `- Transcribe exactly what is written, including the student's own wording, spelling and abbreviations. Do not correct, improve or summarise.\n` +
-    `- Preserve the layout: keep line breaks, headings, numbered and bulleted lists, and indentation where it carries meaning.\n` +
+    `- Transcribe what is there, including the student's own wording, spelling and abbreviations. ` +
+    `Do not correct, improve or summarise.\n` +
+    `- Transcribe only the study material itself. Ignore surrounding interface: browser tabs, address ` +
+    `bars, toolbars, bookmarks, sidebars, page thumbnails, scrollbars, clocks, notifications, and the ` +
+    `desk or background behind a photographed page.\n` +
+    `- Preserve the layout: keep headings, line breaks, numbered and bulleted lists, and indentation ` +
+    `where it carries meaning.\n` +
     `- Keep tables as simple rows with columns separated by " | ".\n` +
-    `- Mathematical work: transcribe each step on its own line, using plain text (x^2, sqrt, <=, pi, fractions as a/b).\n` +
-    `- If a word is genuinely illegible, write [?] rather than guessing. If you can make a confident partial reading, write it followed by [?].\n` +
-    `- Describe a diagram, graph or drawing briefly inside square brackets, e.g. [diagram: labelled cell membrane].\n` +
-    `- Ignore page furniture such as margin holes, shadows and the desk behind the page.\n` +
-    `- If the page is blank or nothing is readable, reply with exactly: (no readable text)`
+    `- Mathematical work: transcribe each step on its own line in plain text (x^2, sqrt, <=, pi, ` +
+    `fractions as a/b).\n` +
+    `- If a word is genuinely illegible, write [?] rather than guessing. A confident partial reading ` +
+    `should be written followed by [?].\n` +
+    `- Describe a diagram, graph or drawing briefly inside square brackets, e.g. ` +
+    `[diagram: data classified into categorical and numerical].\n` +
+    `- Only if the image contains no study material at all - a blank page, or nothing but interface ` +
+    `chrome - reply with exactly: (no readable text)`
   const user: any[] = [
     { type: 'image', source: { type: 'base64', media_type: opts.mediaType, data: opts.base64 } },
     {
       type: 'text',
       text:
-        `Transcribe this page.` +
-        (opts.subjectName ? ` It is ${opts.subjectName} schoolwork.` : '') +
+        `Transcribe the study material in this image so the student can revise from it.` +
+        (opts.subjectName ? ` It is ${opts.subjectName} material.` : '') +
         (opts.hint ? ` ${opts.hint}` : ''),
     },
   ]
