@@ -1,0 +1,21 @@
+{
+  "name": "study-hq",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Study HQ - personal HSC study platform (Year 11 -> Year 12).",
+  "workspaces": ["apps/*"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "concurrently -n server,web -c cyan,magenta \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "npm run dev -w @shq/server",
+    "dev:web": "npm run dev -w @shq/web",
+    "build": "npm run build -w @shq/web",
+    "start": "npm run start -w @shq/server",
+    "typecheck": "npm run typecheck -w @shq/server && npm run typecheck -w @shq/web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.2"
+  }
+}

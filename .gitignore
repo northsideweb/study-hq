@@ -1,0 +1,17 @@
+# dependencies
+node_modules
+
+# build output
+dist
+
+# local data — your database, uploads and originals never leave this machine
+data/*
+!data/.gitkeep
+
+# secrets
+.env
+.env.local
+
+# misc
+.DS_Store
+*.log
