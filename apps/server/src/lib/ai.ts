@@ -2,7 +2,7 @@
  * AI study engine. All Anthropic calls live here - the API key never leaves the server.
  */
 import Anthropic from '@anthropic-ai/sdk'
-import { ANTHROPIC_API_KEY, ANTHROPIC_MODEL, hasApiKey } from './config.js'
+import { ANTHROPIC_API_KEY, ANTHROPIC_MODEL, ANTHROPIC_FAST_MODEL, hasApiKey } from './config.js'
 import { db, plain, plainAll } from './db.js'
 
 export class AiNotConfigured extends Error {
@@ -115,17 +115,25 @@ export async function askJson(opts: {
   maxTokens?: number
   prefill?: string
   temperature?: number
+  /** How hard the model should think. Generation is fine on 'low'; marking wants more. */
+  effort?: 'low' | 'medium' | 'high'
+  /** Override the model — generation uses the faster one. */
+  model?: string
 }): Promise<any> {
   const anthropic = getClient()
   // Some models reject an assistant prefill, so ask for raw JSON in the system prompt instead.
   const wants = opts.prefill === '{' ? 'a single JSON object' : 'a JSON array'
+  const model = opts.model || ANTHROPIC_MODEL
+  // Haiku and older models reject `effort`; it only applies to the reasoning models.
+  const supportsEffort = !/haiku|claude-3/i.test(model)
   const res = await anthropic.messages.create({
-    model: ANTHROPIC_MODEL,
+    model,
     max_tokens: opts.maxTokens ?? 4000,
     temperature: opts.temperature ?? 1,
     system: `${opts.system}\n\nReply with ${wants} and nothing else - no explanation, no markdown code fences.`,
     messages: [{ role: 'user', content: opts.user }],
-  })
+    ...(opts.effort && supportsEffort ? { output_config: { effort: opts.effort } } : {}),
+  } as any)
   const text = res.content.map((b: any) => (b.type === 'text' ? b.text : '')).join('')
   return extractJson(text)
 }
@@ -410,14 +418,30 @@ export async function generateQuestions(opts: GenerateOpts) {
       (db.prepare('SELECT year_level FROM profile WHERE id=1').get() as any)?.year_level ?? 11
     } student. ${guidance}\n${QUESTION_SCHEMA}\nNo commentary outside the JSON.`
 
-  const user =
-    `${modeRule}\n\n${typeRule}\nDifficulty: ${opts.difficulty}. Generate exactly ${opts.count} question(s).` +
-    (opts.extraInstructions ? `\nExtra instructions: ${opts.extraInstructions}` : '') +
-    `\n\n=== STUDENT MATERIAL ===\n${ctx.text || '(none provided)'}\n${weakBlock}${avoidBlock}`
+  const BATCH = 4
+  const batches: number[] = []
+  for (let left = opts.count; left > 0; left -= BATCH) batches.push(Math.min(BATCH, left))
 
-  const json = await askJson({ system, user, maxTokens: Math.min(16000, 1200 + opts.count * 900) })
-  const arr = Array.isArray(json) ? json : json.questions || []
+  const askBatch = async (n: number, index: number) => {
+    const body =
+      `${modeRule}\n\n${typeRule}\nDifficulty: ${difficultyOf(opts)}. Generate exactly ${n} question(s).` +
+      (opts.extraInstructions ? `\nExtra instructions: ${opts.extraInstructions}` : '') +
+      (batches.length > 1
+        ? `\nThis is set ${index + 1} of ${batches.length} being written at the same time, so make these questions distinctly different from the others.`
+        : '') +
+      `\n\n=== STUDENT MATERIAL ===\n${ctx.text || '(none provided)'}\n${weakBlock}${avoidBlock}`
+    const json = await askJson({ system, user: body, maxTokens: Math.min(8000, 900 + n * 900), effort: 'low', model: ANTHROPIC_FAST_MODEL })
+    return Array.isArray(json) ? json : json.questions || []
+  }
+
+  const results = await Promise.all(batches.map((n, i) => askBatch(n, i)))
+  const arr = results.flat()
   return { questions: arr, sources: ctx.sources }
+}
+
+/** The difficulty label used in prompts. */
+function difficultyOf(opts: GenerateOpts) {
+  return opts.difficulty
 }
 
 export async function generateFlashcards(opts: {
@@ -449,7 +473,7 @@ export async function generateFlashcards(opts: {
     `Create exactly ${opts.count} flashcards. ${kindRule}\n` +
     `Base them on MY material below wherever possible.\n\n=== MY MATERIAL ===\n${ctx.text || '(none)'}`
 
-  const json = await askJson({ system, user, maxTokens: Math.min(16000, 800 + opts.count * 260) })
+  const json = await askJson({ system, user, maxTokens: Math.min(16000, 800 + opts.count * 260), effort: 'low', model: ANTHROPIC_FAST_MODEL })
   return Array.isArray(json) ? json : json.cards || []
 }
 
@@ -543,6 +567,8 @@ export async function parseSyllabusText(text: string, subjectName: string) {
         system,
         user: `SUBJECT: ${subjectName}\n\nRAW SYLLABUS TEXT:\n${chunk}`,
         maxTokens: 8000,
+        effort: 'low',
+        model: ANTHROPIC_FAST_MODEL,
       })
       return Array.isArray(json) ? json : []
     } catch {

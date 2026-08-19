@@ -84,6 +84,34 @@ export default function PracticeRunner() {
 
   const reset = () => { setResponse(''); setResult(null) }
 
+  /**
+   * Quietly write the next questions while the student is still answering, so
+   * "Next question" is instant instead of a 10-20 second wait.
+   */
+  const prefetch = useMutation({
+    mutationFn: () => {
+      const cfg = JSON.parse(data?.set?.config || '{}')
+      return api.post('/practice/generate', {
+        ...cfg,
+        set_id: setId,
+        subject_id: data.set.subject_id,
+        topic_id: data.set.topic_id,
+        mode: data.set.mode,
+        count: 3,
+      })
+    },
+    onSuccess: () => refetch(),
+  })
+
+  const endless = infinite || data?.set?.kind === 'infinite'
+
+  // Top up once the student reaches the last question of what we have.
+  useEffect(() => {
+    if (!endless || !data || prefetch.isPending || more.isPending) return
+    const remaining = questions.length - (index + 1)
+    if (remaining <= 0) prefetch.mutate()
+  }, [index, questions.length, endless, data])
+
   const finish = () => {
     // Time is already logged per answer by the server, so only refresh the views here.
     qc.invalidateQueries({ queryKey: ['dashboard'] })
@@ -97,7 +125,12 @@ export default function PracticeRunner() {
 
   const next = async () => {
     if (index + 1 < questions.length) { setIndex(index + 1); reset(); return }
-    if (infinite || data?.set?.kind === 'infinite') { more.mutate(); return }
+    if (endless) {
+      // If the background top-up is still running, wait on it rather than starting another.
+      if (prefetch.isPending) return
+      more.mutate()
+      return
+    }
     finish()
   }
 

@@ -19,5 +19,10 @@ export const PORT = Number(process.env.API_PORT || 4100)
 
 export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || ''
 export const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5'
+/**
+ * Used for bulk generation (questions, flashcards, syllabus parsing) where speed and cost
+ * matter more than deep reasoning. Marking and transcription stay on the main model.
+ */
+export const ANTHROPIC_FAST_MODEL = process.env.ANTHROPIC_FAST_MODEL || 'claude-haiku-4-5'
 /** A key exists in .env. The in-app on/off switch lives in ai.ts (it needs the database). */
 export const hasApiKey = () => ANTHROPIC_API_KEY.trim().length > 0
