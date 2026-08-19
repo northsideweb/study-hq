@@ -34,6 +34,10 @@ export default function UploadPage() {
   const [progress, setProgress] = useState<number | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [camera, setCamera] = useState(false)
+  // getUserMedia only works on https or localhost. On a phone reaching this over the
+  // local network we must use the device camera through a file input instead.
+  const liveCameraAvailable =
+    typeof window !== 'undefined' && window.isSecureContext && !!navigator.mediaDevices?.getUserMedia
   const [review, setReview] = useState<any>(null)
 
   useEffect(() => {
@@ -83,7 +87,7 @@ export default function UploadPage() {
   }
 
   return (
-    <div className="stack" style={{ gap: 18 }}>
+    <div className="page">
       <div className="page-head">
         <div>
           <h1 className="display">Add school work</h1>
@@ -122,17 +126,34 @@ export default function UploadPage() {
           {method === 'photo' && (
             <div className="stack">
               <SectionHead title="Take a photo" sub="Best for handwritten notes, worksheets and whiteboards." />
-              <div className="dropzone" onClick={() => setCamera(true)} style={{ padding: 34 }}>
-                <Icon name="camera" size={28} style={{ color: 'var(--blue)' }} />
-                <div className="strong" style={{ marginTop: 8 }}>Open camera</div>
-                <div className="meta" style={{ maxWidth: 380, margin: '4px auto 0' }}>
-                  Study HQ reads the handwriting, keeps the original photo, and lets you fix anything it got wrong before saving.
+
+              {liveCameraAvailable ? (
+                <div className="dropzone" onClick={() => setCamera(true)} style={{ padding: 34 }}>
+                  <Icon name="camera" size={28} style={{ color: 'var(--blue)' }} />
+                  <div className="strong" style={{ marginTop: 8 }}>Open camera</div>
+                  <div className="meta" style={{ maxWidth: 380, margin: '4px auto 0' }}>
+                    Study HQ reads the handwriting, keeps the original photo, and lets you fix anything it got wrong before saving.
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <label className="dropzone" style={{ padding: 34, display: 'block', cursor: 'pointer' }}>
+                  <Icon name="camera" size={28} style={{ color: 'var(--blue)' }} />
+                  <div className="strong" style={{ marginTop: 8 }}>Take a photo</div>
+                  <div className="meta" style={{ maxWidth: 380, margin: '4px auto 0' }}>
+                    Opens your camera. Study HQ reads the handwriting, keeps the original photo, and lets you
+                    fix anything it got wrong before saving.
+                  </div>
+                  <input
+                    type="file" hidden accept="image/*" capture="environment"
+                    onChange={(e) => e.target.files?.length && uploadFiles.mutate(Array.from(e.target.files))}
+                  />
+                </label>
+              )}
+
               <label className="btn block" style={{ cursor: 'pointer' }}>
-                <Icon name="image" size={14} /> Choose a photo from this device
-                <input type="file" hidden accept="image/*" capture="environment"
-                  onChange={(e) => e.target.files?.[0] && uploadFiles.mutate([e.target.files[0]])} />
+                <Icon name="image" size={14} /> Choose from photo library
+                <input type="file" hidden multiple accept="image/*"
+                  onChange={(e) => e.target.files?.length && uploadFiles.mutate(Array.from(e.target.files))} />
               </label>
             </div>
           )}
@@ -382,13 +403,24 @@ function CameraModal({ onCapture, onClose }: { onCapture: (b: Blob) => void; onC
       }
     >
       {error ? (
-        <div className="notice error">
-          <Icon name="alert" size={15} />
-          <div>
-            <div className="strong">Camera unavailable</div>
-            <div>{error}</div>
-            <div className="body" style={{ marginTop: 5 }}>Use “Upload files” instead, or allow camera access for this site.</div>
+        <div className="stack">
+          <div className="notice error">
+            <Icon name="alert" size={15} />
+            <div>
+              <div className="strong">Live preview unavailable</div>
+              <div>{error}</div>
+              <div className="body" style={{ marginTop: 5 }}>
+                You can still use your device camera — it works exactly the same.
+              </div>
+            </div>
           </div>
+          <label className="btn primary block" style={{ cursor: 'pointer' }}>
+            <Icon name="camera" size={15} /> Use my device camera
+            <input
+              type="file" hidden accept="image/*" capture="environment"
+              onChange={(e) => e.target.files?.[0] && onCapture(e.target.files[0])}
+            />
+          </label>
         </div>
       ) : (
         <div style={{ position: 'relative', background: '#000', borderRadius: 10, overflow: 'hidden' }}>

@@ -216,6 +216,9 @@ code {
 }
 
 /* ============================ progress ============================ */
+.subject-counts { width: 116px; text-align: right; flex: 0 0 auto; }
+.subject-mastery { width: 46px; text-align: right; font-weight: 600; flex: 0 0 auto; }
+
 .progress { height: 3px; background: var(--line); border-radius: 3px; overflow: hidden; }
 .progress > span { display: block; height: 100%; background: var(--blue); border-radius: 3px; transition: width 600ms var(--ease); }
 .progress.thick { height: 5px; }
@@ -573,20 +576,18 @@ table.data td:last-child, table.data th:last-child { padding-right: 0; }
 
 @media (max-width: 900px) {
   .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 800; transform: translateX(-100%);
-    transition: transform var(--t); box-shadow: var(--shadow-pop); }
+    transition: transform var(--t); box-shadow: var(--shadow-pop); width: 270px; flex-basis: 270px; }
   .sidebar.open { transform: none; }
   .mobile-only { display: inline-flex; }
-  .topbar { padding: 0 14px; }
-  .page { padding: 26px 18px 96px; }
-  h1 { font-size: 23px; }
-  .display { font-size: 24px; }
-  .metrics { gap: 0 28px; }
-  .metric + .metric { padding-left: 28px; margin-left: -28px; }
+  .topbar { padding: 0 12px; gap: 8px; }
+  .content { overflow-x: hidden; }
+  .page, .page.narrow, .page.wide { padding: 22px 16px 90px; max-width: 100%; }
   .ai-label { display: none; }
   .search { max-width: none; }
-  .fab { bottom: 78px; right: 18px; }
-  .fab-menu { bottom: 132px; right: 18px; }
-  .split.even { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .fab { bottom: 76px; right: 16px; }
+  .fab-menu { bottom: 130px; right: 16px; left: 16px; min-width: 0; }
+  .split, .split.even { grid-template-columns: minmax(0, 1fr); gap: 34px; }
+
   .bottom-nav {
     display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 750; height: 56px;
     background: var(--bg); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom);
@@ -596,4 +597,100 @@ table.data td:last-child, table.data th:last-child { padding-right: 0; }
     font-size: 10.5px; color: var(--ink-4); font-weight: 500;
   }
   .bottom-nav a.active { color: var(--blue); }
+
+  /* ---- type: slightly tighter, still comfortable ---- */
+  h1 { font-size: 22px; }
+  h2 { font-size: 16px; }
+  .display { font-size: 23px; letter-spacing: -0.022em; }
+  .lead { font-size: 14px; }
+  .question-prompt { font-size: 17px; }
+
+  /* ---- headers stack instead of squeezing ---- */
+  .page-head { flex-direction: column; align-items: stretch; gap: 14px; margin-bottom: 26px; }
+  .page-head .section-actions { flex-wrap: wrap; }
+  .section { margin-bottom: 36px; }
+  .section-head { flex-wrap: wrap; gap: 8px 12px; }
+
+  /* ---- metrics become a readable 2-up grid, no hairline rules ---- */
+  .metrics, .metrics.ruled { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 12px; }
+  .metrics.ruled .metric { padding: 0; border-left: none; }
+  .metric { padding: 0; min-width: 0; }
+  .metric-value { font-size: 21px; margin-top: 2px; line-height: 1.2; }
+  .metric-note { font-size: 11.5px; margin-top: 1px; }
+  .metric-label { font-size: 10.5px; }
+
+  /* ---- list rows: let content breathe and wrap ---- */
+  .row-item { gap: 10px; padding: 13px 10px; margin: 0 -10px; flex-wrap: wrap; }
+  .row-main { flex: 1 1 60%; }
+  .row-title { font-size: 14px; }
+  .row-sub { font-size: 12.5px; }
+  .row-go { display: none; }
+  .row-aside { font-size: 12.5px; }
+  .row-index { width: 20px; font-size: 11.5px; }
+  .row-time { width: auto; min-width: 48px; font-size: 12.5px; }
+  .progress-inline { width: 100%; order: 10; }
+  .subject-counts { width: auto; text-align: left; flex: 1 1 auto; }
+  .subject-mastery { width: auto; text-align: right; flex: 0 0 auto; font-size: 15px; }
+
+  /* ---- tables scroll rather than overflow the page ---- */
+  table.data { display: block; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
+  table.data td, table.data th { padding: 12px 10px; }
+
+  /* ---- comfortable touch targets ---- */
+  .btn { height: 40px; padding: 0 15px; font-size: 14px; }
+  .btn.sm { height: 34px; padding: 0 12px; font-size: 13px; }
+  .btn.icon { width: 40px; }
+  .btn.icon.sm { width: 34px; }
+  .btn.lg { height: 46px; font-size: 15px; }
+  .chip { height: 34px; padding: 0 14px; font-size: 13px; }
+  .seg button { height: 32px; padding: 0 13px; font-size: 13px; }
+  .tick { width: 22px; height: 22px; font-size: 11px; }
+  input, textarea, select { font-size: 16px; padding: 10px 12px; }  /* 16px stops iOS zooming on focus */
+
+  /* ---- tabs: swipeable, no visible scrollbar ---- */
+  .tabs { gap: 18px; margin-bottom: 22px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .tab { padding-bottom: 12px; font-size: 14px; }
+
+  /* ---- modals behave like sheets ---- */
+  .modal-backdrop { padding: 0; align-items: flex-end; }
+  .modal, .modal.wide, .modal.full {
+    max-width: 100%; max-height: 92vh; border-radius: 14px 14px 0 0; animation: sheetUp 260ms var(--ease);
+  }
+  .modal-head { padding: 20px 18px 4px; }
+  .modal-body { padding: 14px 18px 6px; }
+  .modal-foot { padding: 14px 18px calc(18px + env(safe-area-inset-bottom)); flex-wrap: wrap; }
+  .modal-foot .btn { flex: 1 1 auto; }
+
+  /* ---- study surfaces ---- */
+  .flashcard { min-height: 220px; padding: 34px 20px; }
+  .flashcard-front { font-size: 18px; }
+  .flashcard-back { font-size: 15.5px; }
+  .option { padding: 14px; font-size: 15px; }
+  .stimulus { padding: 14px; font-size: 14px; }
+  .choice { padding: 16px; }
+  .grid-2, .grid-3 { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+
+  /* ---- editor + notes ---- */
+  .editor-bar { gap: 2px; overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+  .editor-bar::-webkit-scrollbar { display: none; }
+  .editor-bar button { min-width: 34px; height: 34px; }
+  .prose { font-size: 16px; max-width: none; }
+  .paper { font-size: 16px; }
+
+  /* ---- calendar: readable at phone width ---- */
+  .cal-cell { min-height: 66px; padding: 5px 4px; }
+  .cal-date { font-size: 11px; margin-bottom: 3px; }
+  .cal-ev { font-size: 9.5px; padding: 1px 3px; }
+  .cal-head { padding: 6px 2px; font-size: 9.5px; text-align: center; }
+
+  .toasts { left: 12px; right: 12px; bottom: 72px; max-width: none; }
+}
+
+@keyframes sheetUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+
+/* Very small phones only (iPhone SE 1st gen and similar) */
+@media (max-width: 340px) {
+  .metrics, .metrics.ruled { grid-template-columns: 1fr; gap: 14px; }
+  .page, .page.narrow, .page.wide { padding: 18px 13px 88px; }
+  .display { font-size: 20px; }
 }

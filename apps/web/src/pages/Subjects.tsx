@@ -167,7 +167,7 @@ export default function Subjects() {
                   </div>
                 </div>
 
-                <div className="micro num" style={{ width: 116, textAlign: 'right' }}>
+                <div className="micro num subject-counts">
                   {st.topics} topics · {st.flashcards} cards
                 </div>
 
@@ -175,7 +175,7 @@ export default function Subjects() {
                   <Bar value={st.mastery ?? 0} color={masteryColour(st.mastery)} />
                 </div>
 
-                <div className="num" style={{ width: 46, textAlign: 'right', fontWeight: 600, color: masteryColour(st.mastery) }}>
+                <div className="num subject-mastery" style={{ color: masteryColour(st.mastery) }}>
                   {st.mastery === null ? '—' : `${st.mastery}%`}
                 </div>
 
