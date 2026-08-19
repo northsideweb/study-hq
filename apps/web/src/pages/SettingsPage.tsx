@@ -29,6 +29,15 @@ export default function SettingsPage() {
     onError: (e: any) => toast(e.message, 'error'),
   })
 
+  const toggleAi = useMutation({
+    mutationFn: (enabled: boolean) => api.post('/ai/toggle', { enabled }),
+    onSuccess: (r: any) => {
+      qc.invalidateQueries({ queryKey: ['ai-status'] })
+      toast(r.configured ? 'AI is on' : 'AI is off — nothing will be billed', 'success')
+    },
+    onError: (e: any) => toast(e.message, 'error'),
+  })
+
   const applyTheme = (t: string) => {
     setTheme(t)
     localStorage.setItem('shq-theme', t)
@@ -147,30 +156,85 @@ export default function SettingsPage() {
 
       {tab === 'ai' && (
         <section className="section">
-          <SectionHead title="AI engine" />
-          <div className={`notice ${ai?.configured ? 'ok' : 'warn'}`} style={{ marginBottom: 12 }}>
-            <Icon name={ai?.configured ? 'check' : 'alert'} size={15} />
-            <div>
-              <div className="strong">{ai?.configured ? 'AI connected' : 'AI not configured'}</div>
-              <div>
+          <SectionHead
+            title="AI features"
+            sub="Study HQ works either way. Turn AI off and nothing is billed to your account."
+          />
+
+          <div className="row" style={{ gap: 14, padding: '18px 0', borderBottom: '1px solid var(--line)' }}>
+            <div style={{ flex: 1 }}>
+              <div className="body" style={{ fontWeight: 550 }}>
+                {ai?.configured ? 'AI is on' : ai?.key_present ? 'AI is off' : 'No API key set up'}
+              </div>
+              <div className="meta" style={{ marginTop: 3 }}>
                 {ai?.configured
-                  ? `Model: ${ai.model}. Question generation, marking, flashcards, study plans and note tools are all live.`
-                  : 'Study HQ still works offline: randomised Mathematics Standard questions with working, plus flashcards and recall questions built from your own notes.'}
+                  ? `Using ${ai.model}. Roughly 1–2 cents per practice set.`
+                  : ai?.key_present
+                    ? 'Nothing is being billed. Maths practice, flashcards and questions from your own notes still work.'
+                    : 'Add a key to .env to make this switch available.'}
+              </div>
+            </div>
+            <button
+              className={`btn ${ai?.configured ? '' : 'primary'}`}
+              disabled={!ai?.key_present || toggleAi.isPending}
+              onClick={() => toggleAi.mutate(!ai?.configured)}
+            >
+              {toggleAi.isPending ? <><span className="spinner" /> Switching…</> : ai?.configured ? 'Turn AI off' : 'Turn AI on'}
+            </button>
+          </div>
+
+          <div style={{ paddingTop: 20 }}>
+            <div className="eyebrow" style={{ marginBottom: 12 }}>What works with AI off</div>
+            <div className="split even">
+              <div>
+                <div className="body" style={{ fontWeight: 550, color: 'var(--green)', marginBottom: 6 }}>Free, always available</div>
+                <ul className="meta" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.85 }}>
+                  <li>Mathematics practice — randomised, with full working</li>
+                  <li>Flashcards and fill-the-blank questions from your own notes</li>
+                  <li>Reading PDFs, Word documents and PowerPoints</li>
+                  <li>OCR on photos of handwriting</li>
+                  <li>Syllabus, notes, uploads, search, progress, spaced repetition</li>
+                  <li>Exams built from questions you already have</li>
+                  <li>Multiple choice and true/false marked automatically</li>
+                </ul>
+              </div>
+              <div>
+                <div className="body" style={{ fontWeight: 550, marginBottom: 6 }}>Needs AI on</div>
+                <ul className="meta" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.85 }}>
+                  <li>Written questions for English, Legal, Business, Music, D&amp;T</li>
+                  <li>Marking written answers and essays</li>
+                  <li>Turning a syllabus PDF into tickable points</li>
+                  <li>Study plans and the Learn step of a study session</li>
+                  <li>Note tools — summarise, explain, study sheet</li>
+                  <li>Pulling quotes, cases and examples out of your material</li>
+                </ul>
               </div>
             </div>
           </div>
-          {!ai?.configured && (
-            <div className="stack" style={{ gap: 10 }}>
-              <div className="strong">To switch AI on</div>
+
+          <div style={{ paddingTop: 24 }}>
+            <div className="eyebrow" style={{ marginBottom: 10 }}>Keeping the cost down</div>
+            <ul className="meta" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.9 }}>
+              <li>Turn AI on only when you need it — flick it off the rest of the time.</li>
+              <li>Generated questions are saved, so re-doing a set costs nothing.</li>
+              <li>Set a monthly spend limit in the Anthropic console — a hard ceiling.</li>
+              <li>
+                For a cheaper model, set <code>ANTHROPIC_MODEL=claude-haiku-4-5</code> in <code>.env</code> and restart
+                — about a third of the price, fine for questions and flashcards.
+              </li>
+            </ul>
+          </div>
+
+          {!ai?.key_present && (
+            <div style={{ paddingTop: 24 }}>
+              <div className="eyebrow" style={{ marginBottom: 10 }}>Setting up a key</div>
               <ol className="meta" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.9 }}>
-                <li>Get an API key from <code>console.anthropic.com</code></li>
+                <li>Get a key from <code>console.anthropic.com</code></li>
                 <li>Open <code>.env</code> in the <code>study-hq</code> folder</li>
                 <li>Set <code>ANTHROPIC_API_KEY=sk-ant-…</code></li>
-                <li>Restart the server (<code>npm run dev</code>)</li>
+                <li>Restart the app</li>
               </ol>
               <div className="hint">The key is only ever read by the server — never sent to the browser or stored in the database.</div>
-              <div className="strong" style={{ marginTop: 6 }}>Optional settings</div>
-              <div className="mono micro pre-wrap">ANTHROPIC_MODEL=claude-sonnet-5{'\n'}API_PORT=4100{'\n'}DATA_DIR=./data</div>
             </div>
           )}
         </section>

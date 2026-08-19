@@ -20,7 +20,9 @@ export default function PracticeRunner() {
   const [response, setResponse] = useState('')
   const [result, setResult] = useState<Attempt | null>(null)
   const [answered, setAnswered] = useState<Record<string, Attempt>>({})
+  const [finished, setFinished] = useState(false)
   const startedAt = useRef(Date.now())
+  const sessionStart = useRef(Date.now())
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['practice-set', setId],
@@ -58,8 +60,12 @@ export default function PracticeRunner() {
     },
     onSuccess: async (r: any) => {
       if (r.notice) toast(r.notice, 'info')
-      await refetch()
-      setIndex((i) => i + 1)
+      const { data: fresh } = await refetch()
+      // Jump to the first newly added question, whether we came from the last
+      // question or from the summary screen.
+      const firstNew = (fresh?.questions?.length || questions.length + 1) - (r.questions?.length || 1)
+      setFinished(false)
+      setIndex(Math.max(0, firstNew))
       reset()
     },
     onError: (e: any) => toast(e.message, 'error', 'Could not generate more questions'),
@@ -78,10 +84,21 @@ export default function PracticeRunner() {
 
   const reset = () => { setResponse(''); setResult(null) }
 
+  const finish = () => {
+    // Time is already logged per answer by the server, so only refresh the views here.
+    qc.invalidateQueries({ queryKey: ['dashboard'] })
+    qc.invalidateQueries({ queryKey: ['subjects'] })
+    qc.invalidateQueries({ queryKey: ['progress'] })
+    qc.invalidateQueries({ queryKey: ['mastery'] })
+    qc.invalidateQueries({ queryKey: ['mistakes'] })
+    qc.invalidateQueries({ queryKey: ['practice-sets'] })
+    setFinished(true)
+  }
+
   const next = async () => {
     if (index + 1 < questions.length) { setIndex(index + 1); reset(); return }
     if (infinite || data?.set?.kind === 'infinite') { more.mutate(); return }
-    toast('That was the last question in this set.', 'info')
+    finish()
   }
 
   const stats = useMemo(() => {
@@ -94,6 +111,96 @@ export default function PracticeRunner() {
   if (isLoading) return <Loading label="Loading practice" />
   if (error) return <ErrorBox error={error} retry={refetch} />
   if (!q) return <ErrorBox error={{ message: 'This practice set has no questions.' }} />
+
+  if (finished) {
+    const answers = Object.entries(answered)
+    const marked = answers.filter(([, a]) => a.max_score > 0)
+    const score = marked.reduce((t, [, a]) => t + a.score, 0)
+    const max = marked.reduce((t, [, a]) => t + a.max_score, 0)
+    const pct = max ? Math.round((score / max) * 100) : null
+    const wrong = marked.filter(([, a]) => a.score < a.max_score)
+    const minutes = Math.max(1, Math.round((Date.now() - sessionStart.current) / 60000))
+    const promptFor = (id: string) => questions.find((x) => x.id === id)?.prompt || ''
+
+    return (
+      <div className="page narrow">
+        <div className="row" style={{ marginBottom: 30 }}>
+          <button className="btn quiet sm" onClick={() => navigate('/practice')}>
+            <Icon name="chevronLeft" size={14} /> Practice
+          </button>
+        </div>
+
+        <header style={{ marginBottom: 30 }}>
+          <div className="eyebrow">{data.set.name}</div>
+          <h1 className="display" style={{ marginTop: 8 }}>Set complete</h1>
+          <div className="lead" style={{ marginTop: 7 }}>
+            {answers.length ? 'Saved to your progress — your mastery and streak are up to date.'
+                            : 'You did not answer any questions in this set.'}
+          </div>
+        </header>
+
+        {!!answers.length && (
+          <div className="metrics ruled" style={{ paddingBottom: 26, borderBottom: '1px solid var(--line)', marginBottom: 34 }}>
+            <div className="metric">
+              <div className="metric-label">Score</div>
+              <div className="metric-value">{pct === null ? '—' : `${pct}%`}</div>
+              <div className="metric-note">{max ? `${score} of ${max} marks` : 'self-marked'}</div>
+            </div>
+            <div className="metric">
+              <div className="metric-label">Answered</div>
+              <div className="metric-value">{answers.length}<span className="unit"> / {questions.length}</span></div>
+              <div className="metric-note">questions</div>
+            </div>
+            <div className="metric">
+              <div className="metric-label">Time</div>
+              <div className="metric-value">{minutes}<span className="unit"> min</span></div>
+              <div className="metric-note">on this set</div>
+            </div>
+            <div className="metric">
+              <div className="metric-label">To review</div>
+              <div className="metric-value" style={wrong.length ? { color: 'var(--amber)' } : undefined}>{wrong.length}</div>
+              <div className="metric-note">{wrong.length ? 'saved to your mistakes' : 'nothing wrong'}</div>
+            </div>
+          </div>
+        )}
+
+        {!!wrong.length && (
+          <section className="section">
+            <div className="section-head">
+              <div>
+                <h2>What to go back over</h2>
+                <div className="sub">These are in your mistake bank, so you can redo them any time.</div>
+              </div>
+            </div>
+            <div className="rows">
+              {wrong.map(([id, a]) => (
+                <div className="row-item" key={id} style={{ alignItems: 'flex-start' }}>
+                  <div className="row-main">
+                    <div className="row-title">{promptFor(id).slice(0, 120)}</div>
+                    <div className="row-sub">{(a.improvement || a.feedback || '').slice(0, 190)}</div>
+                  </div>
+                  <div className="row-aside" style={{ color: 'var(--red)' }}>{a.score}/{a.max_score}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <div className="row wrap" style={{ gap: 9, marginTop: 8 }}>
+          <button className="btn primary" onClick={() => more.mutate()} disabled={more.isPending}>
+            {more.isPending ? <><span className="spinner" /> Writing more…</> : 'More questions like these'}
+          </button>
+          {!!wrong.length && (
+            <button className="btn" onClick={() => navigate(`/practice?tab=mistakes&subject=${data.set.subject_id || ''}`)}>
+              Practise my mistakes
+            </button>
+          )}
+          <button className="btn" onClick={() => { setFinished(false); setIndex(0); reset() }}>Review my answers</button>
+          <button className="btn quiet" onClick={() => navigate('/practice')}>Done</button>
+        </div>
+      </div>
+    )
+  }
 
   const isMcq = q.qtype === 'multiple_choice' || q.qtype === 'true_false'
   const options = q.qtype === 'true_false' && !q.options?.length ? ['True', 'False'] : q.options || []
@@ -161,7 +268,9 @@ export default function PracticeRunner() {
               {TYPED_LONG.has(q.qtype) ? `${response.trim().split(/\s+/).filter(Boolean).length} words` : ''}
             </span>
             <div className="spacer" />
-            <button className="btn quiet" onClick={next}>Skip</button>
+            <button className="btn quiet" onClick={next}>
+              {index + 1 < questions.length ? 'Skip' : 'Finish set'}
+            </button>
             <button className="btn primary" disabled={!response.trim() || submit.isPending} onClick={() => submit.mutate()}>
               {submit.isPending ? <><span className="spinner" /> Marking…</> : 'Submit answer'}
             </button>

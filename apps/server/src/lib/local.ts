@@ -161,18 +161,30 @@ export function localFlashcards(text: string, count: number) {
     .map((l) => l.trim())
     // Drop the context-block headers ("=== MY CLASS NOTES: ... ===") added by buildContext.
     .filter((l) => !/^(===|---|SUBJECT:|FOCUS TOPIC:)/.test(l))
+    // Skip syllabus lines ("- [studying] Section / point") - they are headings and
+    // administrative boilerplate, not the explanatory prose that makes a good card.
+    .filter((l) => !/^-\s*\[(not_started|studying|needs_revision|completed)\]/.test(l))
     // Strip the bullet and the "[studying]" status marker buildContext adds to syllabus lines.
     .map((l) => l.replace(/^[\s•\-*\d.()]+/, '').replace(/^\[(not_started|studying|needs_revision|completed)\]\s*/, '').trim())
     .filter((l) => l.length > 8)
 
   for (const line of lines) {
     if (cards.length >= count) break
-    const m = line.match(/^(.{3,70}?)\s*(?::|\s[-–—]\s|\bmeans\b|\bis defined as\b|\brefers to\b)\s*(.{15,600})$/i)
+    // Require an explicit definition marker. A dash or colon alone also matches poetry and
+    // prose line breaks, which produced nonsense cards like "Warsaw - Panorama of the Old Town".
+    const m = line.match(
+      /^(.{3,70}?)\s*(?::\s|\s[-–—]\s|\bmeans\b|\bis defined as\b|\brefers to\b|\bis the\b|\bare the\b)\s*(.{25,600})$/i
+    )
     if (!m) continue
+    // The back should read like an explanation, not a fragment of verse.
+    if (!/\s(is|are|means|refers|involves|includes|describes|occurs|allows|ensures|the|a|an)\s/i.test(m[2])) continue
     const front = m[1].replace(/[:\-–—]\s*$/, '').trim()
     const back = m[2].trim()
     // Skip metadata labels that appear in the context block rather than real content.
     if (/^(page|slide|term|week|date|name|teacher|notes?|status|priority|started?|assessment|subject|focus topic|my )\b/i.test(front)) continue
+    // NESA documents carry a lot of front matter; none of it makes a useful card.
+    if (/(implementation|copyright|contents|glossary|version|effective|©|nesa|nsw education standards)/i.test(front)) continue
+    if (/^\d{4}\b/.test(front) || /^(from|for)\s+\d{4}/i.test(front)) continue
     const key = front.toLowerCase()
     if (seen.has(key)) continue
     seen.add(key)
@@ -181,7 +193,15 @@ export function localFlashcards(text: string, count: number) {
 
   // Fall back to sentence cloze if too few definition-shaped lines were found.
   if (cards.length < count) {
-    const sentences = text.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter((s) => s.length > 60 && s.length < 320)
+    // Build cloze cards from the SAME cleaned lines, not the raw context - otherwise
+    // syllabus headings and the context's own labels end up on cards.
+    const sentences = lines
+      .join(' ')
+      .split(/(?<=[.!?])\s+/)
+      .map((x) => x.trim())
+      .filter((x) => x.length > 60 && x.length < 320)
+      .filter((x) => !/(===|SUBJECT:|FOCUS TOPIC:|\[(not_started|studying|needs_revision|completed)\])/.test(x))
+      .filter((x) => !/(implementation|copyright|glossary|nesa|nsw education standards|curriculum planning)/i.test(x))
     for (const s of sentences) {
       if (cards.length >= count) break
       const words = s.split(/\s+/)
@@ -199,11 +219,21 @@ export function localFlashcards(text: string, count: number) {
 
 /** Very simple offline practice from the student's own notes - definition recall. */
 export function localQuestionsFromText(text: string, count: number, difficulty = 'medium'): LocalQuestion[] {
-  return localFlashcards(text, count).map((c) => ({
-    qtype: 'definition', difficulty,
-    prompt: c.front, stimulus: '', options: [],
-    answer: c.back, working: '',
-    marking_guide: 'Full marks for a definition matching the meaning in your own notes.',
-    marks: 2, topic_hint: c.topic_hint,
-  }))
+  return localFlashcards(text, count).map((c) => {
+    const isCloze = c.front.includes('________')
+    return {
+      qtype: isCloze ? 'fill_blank' : 'definition',
+      difficulty,
+      prompt: isCloze ? `Fill in the missing word:\n\n${c.front}` : `Define or explain: ${c.front.replace(/^Define \/ explain: /, '')}`,
+      stimulus: '',
+      options: [],
+      answer: c.back,
+      working: '',
+      marking_guide: isCloze
+        ? 'One mark for the exact missing word.'
+        : 'Full marks for an explanation matching the meaning in your own material.',
+      marks: isCloze ? 1 : 2,
+      topic_hint: c.topic_hint,
+    }
+  })
 }

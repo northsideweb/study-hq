@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
-import { PORT, aiConfigured, ANTHROPIC_MODEL } from './lib/config.js'
+import { PORT, ANTHROPIC_MODEL } from './lib/config.js'
+import { aiConfigured, aiKeyPresent, setAiEnabled } from './lib/ai.js'
 import './lib/db.js'
 import { core } from './routes/core.js'
 import { uploads } from './routes/uploads.js'
@@ -18,14 +19,27 @@ app.get('/api/health', (_req, res) => {
 })
 
 app.get('/api/ai/status', (_req, res) => {
+  const on = aiConfigured()
   res.json({
-    configured: aiConfigured(),
-    model: aiConfigured() ? ANTHROPIC_MODEL : null,
+    configured: on,
+    key_present: aiKeyPresent(),
+    model: on ? ANTHROPIC_MODEL : null,
     env_var: 'ANTHROPIC_API_KEY',
-    hint: aiConfigured()
+    hint: on
       ? null
-      : 'Add ANTHROPIC_API_KEY to the .env file in the Study HQ folder and restart the server. Offline generators are used until then.',
+      : aiKeyPresent()
+        ? 'AI is switched off, so nothing is being billed. Turn it on in Settings whenever you want it.'
+        : 'Add ANTHROPIC_API_KEY to the .env file in the Study HQ folder and restart. Study HQ works without it.',
   })
+})
+
+/** Switch the AI features on or off from inside the app. */
+app.post('/api/ai/toggle', (req, res) => {
+  if (!aiKeyPresent() && req.body?.enabled) {
+    return res.status(400).json({ error: 'There is no API key in .env yet, so there is nothing to turn on.' })
+  }
+  setAiEnabled(!!req.body?.enabled)
+  res.json({ configured: aiConfigured(), key_present: aiKeyPresent(), model: aiConfigured() ? ANTHROPIC_MODEL : null })
 })
 
 app.use('/api', core)

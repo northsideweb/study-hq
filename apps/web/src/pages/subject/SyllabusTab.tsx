@@ -24,6 +24,7 @@ export default function SyllabusTab({ subjectId, subjectName }: { subjectId: str
   const [generate, setGenerate] = useState<{ kind: 'practice' | 'flashcards'; point: SyllabusPoint } | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [importStage, setImportStage] = useState('')
   const [filter, setFilter] = useState('')
 
   const { data, refetch, isLoading } = useQuery({ queryKey: ['syllabus', subjectId], queryFn: () => api.get(`/syllabus/${subjectId}`) })
@@ -55,28 +56,50 @@ export default function SyllabusTab({ subjectId, subjectName }: { subjectId: str
     onError: (e: any) => toast(e.message, 'error', 'Import failed'),
   })
 
+  /** Upload → extract text → save the document → structure it into tickable points. */
   const uploadSyllabus = async (files: FileList | null) => {
     if (!files?.length) return
     setUploading(true)
     try {
+      setImportStage('Uploading your file…')
       const form = new FormData()
       Array.from(files).forEach((f) => form.append('files', f))
       form.append('subject_id', subjectId)
       form.append('work_type', 'Syllabus')
       const res = await api.upload('/uploads', form)
       const id = res.ids[0]
-      toast('Uploaded — reading the text…', 'info')
-      for (let i = 0; i < 90; i++) {
+
+      setImportStage('Reading the text out of it…')
+      for (let i = 0; i < 200; i++) {
         await new Promise((r) => setTimeout(r, 1500))
         const p = await api.get(`/uploads/${id}/progress`)
         if (p.status !== 'pending') break
+        if (p.pct) setImportStage(`Reading the text out of it… ${p.pct}%`)
       }
+
       const full = await api.get(`/uploads/${id}`)
-      await api.post(`/syllabus/${subjectId}/docs`, { title: full.original_filename || 'Syllabus', content: full.extracted_text || '', upload_id: id })
+      await api.post(`/syllabus/${subjectId}/docs`, {
+        title: full.original_filename || 'Syllabus', content: full.extracted_text || '', upload_id: id,
+      })
       invalidate()
-      toast(full.extracted_text ? 'Syllabus saved — use "Structure with AI" to turn it into tickable points.'
-        : `Saved, but no text could be read (${full.extract_error}).`, full.extracted_text ? 'success' : 'error')
-    } catch (e: any) { toast(e.message, 'error', 'Upload failed') } finally { setUploading(false) }
+
+      if (!full.extracted_text) {
+        toast(`Saved the file, but no text could be read from it${full.extract_error ? ` (${full.extract_error})` : ''}. ` +
+              `If it is a scanned syllabus, photograph the pages instead.`, 'error')
+        return
+      }
+
+      const chars = full.extracted_text.length
+      setImportStage(`Structuring ${chars.toLocaleString()} characters into syllabus points — this can take a couple of minutes…`)
+      const parsed = await api.post(`/syllabus/${subjectId}/parse`, { text: full.extracted_text })
+      invalidate()
+      toast(`Imported ${parsed.points} syllabus points across ${parsed.sections} sections.`, 'success')
+    } catch (e: any) {
+      toast(e.message, 'error', 'Syllabus import failed')
+    } finally {
+      setUploading(false)
+      setImportStage('')
+    }
   }
 
   const pointMenu = (p: SyllabusPoint): MenuItem[] => [
@@ -144,6 +167,13 @@ export default function SyllabusTab({ subjectId, subjectName }: { subjectId: str
         </div>
       </div>
 
+      {uploading && !!allPoints.length && (
+        <div className="notice info" style={{ marginBottom: 20 }}>
+          <span className="spinner" />
+          <div>{importStage || 'Working…'}</div>
+        </div>
+      )}
+
       {!!allPoints.length && (
         <div className="row wrap" style={{ gap: 7, marginBottom: 26 }}>
           {(['', 'studying', 'needs_revision', 'completed'] as const).map((f) => (
@@ -155,9 +185,70 @@ export default function SyllabusTab({ subjectId, subjectName }: { subjectId: str
       )}
 
       {!allPoints.length && !docs.length ? (
-        <Empty title="No syllabus yet"
-          message={`Paste your ${subjectName} syllabus, upload the PDF, or photograph the pages. Every point you add becomes the spine of your practice, flashcards and progress.`}
-          action={<button className="btn sm primary" onClick={() => setPaste({ text: '' })}>Paste syllabus</button>} />
+        <section className="section">
+          <div className="section-head">
+            <div>
+              <h2>Import your syllabus</h2>
+              <div className="sub">
+                Every point becomes tickable, and drives your practice, flashcards and progress.
+                Upload the NESA PDF and Study HQ reads it and splits it into points for you.
+              </div>
+            </div>
+          </div>
+
+          <div className="grid-2" style={{ gap: 12, marginTop: 18 }}>
+            <label className="choice" style={{ cursor: uploading ? 'wait' : 'pointer' }}>
+              <span className="ico"><Icon name="file" size={18} /></span>
+              <span style={{ minWidth: 0 }}>
+                <span className="body" style={{ display: 'block', fontWeight: 550 }}>Upload the syllabus PDF</span>
+                <span className="meta" style={{ display: 'block', marginTop: 3, lineHeight: 1.5 }}>
+                  The NESA syllabus straight from the website. Study HQ reads the whole document, however long it is.
+                </span>
+              </span>
+              <input type="file" hidden multiple accept=".pdf,.docx,.txt,image/*" disabled={uploading}
+                onChange={(e) => uploadSyllabus(e.target.files)} />
+            </label>
+
+            <label className="choice" style={{ cursor: uploading ? 'wait' : 'pointer' }}>
+              <span className="ico"><Icon name="camera" size={18} /></span>
+              <span style={{ minWidth: 0 }}>
+                <span className="body" style={{ display: 'block', fontWeight: 550 }}>Photograph the pages</span>
+                <span className="meta" style={{ display: 'block', marginTop: 3, lineHeight: 1.5 }}>
+                  For a printed or scanned syllabus. The handwriting and print are read with OCR.
+                </span>
+              </span>
+              <input type="file" hidden accept="image/*" capture="environment" disabled={uploading}
+                onChange={(e) => uploadSyllabus(e.target.files)} />
+            </label>
+
+            <button className="choice" onClick={() => setPaste({ text: '' })} disabled={uploading}>
+              <span className="ico"><Icon name="clipboard" size={18} /></span>
+              <span style={{ minWidth: 0 }}>
+                <span className="body" style={{ display: 'block', fontWeight: 550 }}>Paste the text</span>
+                <span className="meta" style={{ display: 'block', marginTop: 3, lineHeight: 1.5 }}>
+                  Copy the content dot points from the NESA site and paste them straight in.
+                </span>
+              </span>
+            </button>
+
+            <button className="choice" onClick={() => setAdding({ section_id: null, text: '', code: '' })} disabled={uploading}>
+              <span className="ico"><Icon name="plus" size={18} /></span>
+              <span style={{ minWidth: 0 }}>
+                <span className="body" style={{ display: 'block', fontWeight: 550 }}>Add points one at a time</span>
+                <span className="meta" style={{ display: 'block', marginTop: 3, lineHeight: 1.5 }}>
+                  Type in just the parts your class is covering.
+                </span>
+              </span>
+            </button>
+          </div>
+
+          {uploading && (
+            <div className="notice info" style={{ marginTop: 16 }}>
+              <span className="spinner" />
+              <div>{importStage || 'Working…'}</div>
+            </div>
+          )}
+        </section>
       ) : (
         groups.map(({ section, pts }: any, gi: number) => (
           <section className="section" key={section?.id || `g-${gi}`} style={{ marginBottom: 44 }}>

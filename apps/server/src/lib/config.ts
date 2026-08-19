@@ -19,4 +19,5 @@ export const PORT = Number(process.env.API_PORT || 4100)
 
 export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || ''
 export const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5'
-export const aiConfigured = () => ANTHROPIC_API_KEY.trim().length > 0
+/** A key exists in .env. The in-app on/off switch lives in ai.ts (it needs the database). */
+export const hasApiKey = () => ANTHROPIC_API_KEY.trim().length > 0

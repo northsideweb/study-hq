@@ -124,8 +124,15 @@ export default function App() {
             </form>
             <div className="spacer" />
             <TimerPill />
-            <span className={`ai-status ${aiStatus?.configured ? 'on' : ''}`} title={aiStatus?.hint || `AI model: ${aiStatus?.model}`}>
-              <i /> <span className="ai-label">{aiStatus?.configured ? 'AI connected' : 'AI not configured'}</span>
+            <span
+              className={`ai-status ${aiStatus?.configured ? 'on' : ''}`}
+              title={aiStatus?.hint || `AI model: ${aiStatus?.model}`}
+              style={{ cursor: 'pointer' }}
+              onClick={() => navigate('/settings')}
+            >
+              <i /> <span className="ai-label">
+                {aiStatus?.configured ? 'AI on' : aiStatus?.key_present ? 'AI off' : 'AI not set up'}
+              </span>
             </span>
           </header>
 

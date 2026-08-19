@@ -2,38 +2,14 @@
  * AI study engine. All Anthropic calls live here - the API key never leaves the server.
  */
 import Anthropic from '@anthropic-ai/sdk'
-import { ANTHROPIC_API_KEY, ANTHROPIC_MODEL, hasApiKey } from './config.js'
-import { db, plain, plainAll } from './db.js'
+import { ANTHROPIC_API_KEY, ANTHROPIC_MODEL, aiConfigured } from './config.js'
+import { db, plainAll } from './db.js'
 
 export class AiNotConfigured extends Error {
   constructor() {
-    super(
-      hasApiKey()
-        ? 'AI is switched off. Turn it back on in Settings when you want to use it.'
-        : 'AI is not set up. Add ANTHROPIC_API_KEY to the .env file in the Study HQ folder, then restart the server.'
-    )
+    super('AI is not configured. Add ANTHROPIC_API_KEY to the .env file in the Study HQ folder, then restart the server.')
     this.name = 'AiNotConfigured'
   }
-}
-
-/** True when a key exists AND the student has AI switched on in Settings. */
-export function aiConfigured(): boolean {
-  if (!hasApiKey()) return false
-  const row = db.prepare(`SELECT value FROM settings WHERE key = 'ai_enabled'`).get() as any
-  return row?.value !== '0'
-}
-
-/** Whether a key is present at all, regardless of the on/off switch. */
-export function aiKeyPresent(): boolean {
-  return hasApiKey()
-}
-
-/** Turn the AI features on or off. Nothing is billed while it is off. */
-export function setAiEnabled(on: boolean) {
-  db.prepare(
-    `INSERT INTO settings (key, value) VALUES ('ai_enabled', ?)
-     ON CONFLICT(key) DO UPDATE SET value = excluded.value`
-  ).run(on ? '1' : '0')
 }
 
 let client: Anthropic | null = null
@@ -162,7 +138,7 @@ export type BuiltContext = {
 
 /** Pull the student's own material (syllabus, school content, notes, uploads) into a prompt block. */
 export function buildContext(opts: ContextOpts): BuiltContext {
-  const budget = opts.charBudget ?? 14000
+  const budget = opts.charBudget ?? 60000
   const sources: BuiltContext['sources'] = []
   const parts: string[] = []
   let used = 0
@@ -185,42 +161,31 @@ export function buildContext(opts: ContextOpts): BuiltContext {
   if (topic) push(`FOCUS TOPIC: ${topic.name} (status: ${topic.status})\n`)
 
   if (opts.subjectId) {
-    // Only the points that matter right now. A full NESA syllabus is hundreds of points -
-    // sending all of them on every request is slow and expensive, so prefer what is being
-    // studied or needs revision, then fill up with the rest.
     const points = plainAll(
       db
         .prepare(
           `SELECT p.*, s.title AS section FROM syllabus_points p
            LEFT JOIN syllabus_sections s ON s.id = p.section_id
-           WHERE p.subject_id = ?
-           ORDER BY CASE p.status
-             WHEN 'studying' THEN 0 WHEN 'needs_revision' THEN 1 WHEN 'not_started' THEN 2 ELSE 3 END,
-             p.position
-           LIMIT 45`
+           WHERE p.subject_id = ? ORDER BY p.position LIMIT 200`
         )
         .all(opts.subjectId)
     )
     if (points.length) {
-      const total = (db.prepare('SELECT COUNT(*) n FROM syllabus_points WHERE subject_id = ?').get(opts.subjectId) as any)?.n ?? points.length
       push(
-        `\n=== MY SYLLABUS ${total > points.length ? `(the ${points.length} most relevant of ${total} points)` : '(entered by me)'} ===\n` +
+        `\n=== MY SYLLABUS (entered by me) ===\n` +
           points.map((p) => `- [${p.status}] ${p.section ? p.section + ' / ' : ''}${p.code ? p.code + ' ' : ''}${p.text}`).join('\n') +
           '\n'
       )
       sources.push({ type: 'syllabus', id: opts.subjectId, title: `${points.length} syllabus points` })
     }
 
-    // The raw syllabus document is deliberately NOT included: once it has been structured into
-    // points above, sending it again just doubles the cost of every request. Only fall back to
-    // it when no points have been created yet.
-    if (!points.length) {
-      const doc: any = plain(
-        db.prepare('SELECT * FROM syllabus_docs WHERE subject_id = ? ORDER BY created_at DESC LIMIT 1').get(opts.subjectId)
-      )
-      if (doc?.content?.trim()) {
-        push(`\n=== SYLLABUS DOCUMENT: ${doc.title} ===\n${doc.content.slice(0, 6000)}\n`)
-        sources.push({ type: 'syllabus_doc', id: doc.id, title: doc.title })
+    const docs = plainAll(
+      db.prepare('SELECT * FROM syllabus_docs WHERE subject_id = ? ORDER BY created_at DESC LIMIT 5').all(opts.subjectId)
+    )
+    for (const d of docs) {
+      if (d.content?.trim()) {
+        push(`\n=== SYLLABUS DOCUMENT: ${d.title} ===\n${d.content.slice(0, 12000)}\n`)
+        sources.push({ type: 'syllabus_doc', id: d.id, title: d.title })
       }
     }
 
@@ -252,14 +217,14 @@ export function buildContext(opts: ContextOpts): BuiltContext {
   // Notes + uploads, focused on the topic when one is given.
   const noteRows = plainAll(
     opts.topicId
-      ? db.prepare('SELECT * FROM notes WHERE topic_id = ? ORDER BY updated_at DESC LIMIT 8').all(opts.topicId)
+      ? db.prepare('SELECT * FROM notes WHERE topic_id = ? ORDER BY updated_at DESC LIMIT 20').all(opts.topicId)
       : opts.subjectId
-        ? db.prepare('SELECT * FROM notes WHERE subject_id = ? ORDER BY updated_at DESC LIMIT 8').all(opts.subjectId)
+        ? db.prepare('SELECT * FROM notes WHERE subject_id = ? ORDER BY updated_at DESC LIMIT 20').all(opts.subjectId)
         : []
   )
   for (const n of noteRows) {
     if (!n.body?.trim()) continue
-    push(`\n=== MY NOTE: ${n.title} ===\n${n.body.slice(0, 3500)}\n`)
+    push(`\n=== MY NOTE: ${n.title} ===\n${n.body.slice(0, 8000)}\n`)
     sources.push({ type: 'note', id: n.id, title: n.title })
   }
 
@@ -269,11 +234,11 @@ export function buildContext(opts: ContextOpts): BuiltContext {
     uploads = plainAll(db.prepare(`SELECT * FROM uploads WHERE id IN (${marks})`).all(...opts.sourceUploadIds))
   } else if (opts.topicId) {
     uploads = plainAll(
-      db.prepare('SELECT * FROM uploads WHERE topic_id = ? ORDER BY created_at DESC LIMIT 8').all(opts.topicId)
+      db.prepare('SELECT * FROM uploads WHERE topic_id = ? ORDER BY created_at DESC LIMIT 25').all(opts.topicId)
     )
   } else if (opts.subjectId) {
     uploads = plainAll(
-      db.prepare('SELECT * FROM uploads WHERE subject_id = ? ORDER BY created_at DESC LIMIT 8').all(opts.subjectId)
+      db.prepare('SELECT * FROM uploads WHERE subject_id = ? ORDER BY created_at DESC LIMIT 25').all(opts.subjectId)
     )
   }
   for (const u of uploads) {
@@ -281,7 +246,7 @@ export function buildContext(opts: ContextOpts): BuiltContext {
     if (!body) continue
     push(
       `\n=== MY ${String(u.work_type).toUpperCase()}: ${u.title || u.original_filename} ` +
-        `(${u.subtopic || 'no subtopic'}${u.teacher ? ', teacher ' + u.teacher : ''}) ===\n${body.slice(0, 4000)}\n`
+        `(${u.subtopic || 'no subtopic'}${u.teacher ? ', teacher ' + u.teacher : ''}) ===\n${body.slice(0, 10000)}\n`
     )
     sources.push({ type: 'upload', id: u.id, title: u.title || u.original_filename })
   }
@@ -567,6 +532,7 @@ export async function parseSyllabusText(text: string, subjectName: string) {
   })
 }
 
+export { aiConfigured }
 
 /* ------------------------------------------------------------------ */
 /* v2: note tools, essay marking, study mode                           */
